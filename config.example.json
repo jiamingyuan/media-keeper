@@ -1,0 +1,14 @@
+{
+  "mysql": {
+    "host": "mysql-base",
+    "port": 3306,
+    "database": "agent",
+    "user": "docs_keeper",
+    "password": "REPLACE_WITH_YOUR_DATABASE_PASSWORD"
+  },
+  "lark": {
+    "bin": "lark-cli",
+    "profile": "REPLACE_WITH_YOUR_LARK_PROFILE",
+    "workspace": "/absolute/path/to/your/workspace"
+  }
+}
