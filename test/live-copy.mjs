@@ -11,10 +11,10 @@ const config = await readConfig();
 const db = await connect(config);
 try {
   const input = {
-    title: 'docs-keeper 验收样文：全文、格式与失败恢复', source: 'docs-keeper 验收样本', source_type: 'article',
-    author: 'docs-keeper 测试作者', source_created_at: '2026-10-16', link: null,
+    title: 'media-keeper 验收样文：全文、格式与失败恢复', source: 'media-keeper 验收样本', source_type: 'article',
+    author: 'media-keeper 测试作者', source_created_at: '2026-10-16', link: null,
     abstract: '自制验收样文包含表格、代码和图片：检查值为42。收藏应先核对全文、保留原文结构；重复记录不覆盖，副本已创建而入库失败时应复用原副本。该样本仅用于测试，不能推断真实网站的抓取成功率。',
-    copy_markdown_path: 'docs-keeper-validation/fulltext.md', full_text_confirmed: true
+    copy_markdown_path: 'media-keeper-validation/fulltext.md', full_text_confirmed: true
   };
   const previous = await find(db, input);
   if (previous.records.length) {

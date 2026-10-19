@@ -93,7 +93,7 @@ async function download(input, hops = 0) {
   const selected = addresses[0];
   return new Promise((resolve, reject) => {
     const request = (u.protocol === 'https:' ? https : http).get(u, {
-      headers: { 'User-Agent': 'docs-keeper/0.1 (personal document archiver)', Accept: 'text/html,text/plain,text/markdown', 'Accept-Encoding': 'identity' },
+      headers: { 'User-Agent': 'media-keeper/0.1 (personal document archiver)', Accept: 'text/html,text/plain,text/markdown', 'Accept-Encoding': 'identity' },
       lookup: (_, options, callback) => options.all ? callback(null, [selected]) : callback(null, selected.address, selected.family)
     }, response => {
       if ([301,302,303,307,308].includes(response.statusCode) && response.headers.location) {

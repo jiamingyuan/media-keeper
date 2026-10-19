@@ -1,6 +1,6 @@
-# docs-keeper · V0.1
+# media-keeper
 
-面向 Claude Code 的资料收藏 skill。阅读全文后生成**不超过 400 字**的中文摘要，将元数据和全文入口保存到 MySQL，帮助用户先读摘要，再决定是否阅读全文。
+原 `docs-keeper`，本次仅重命名，版本沿用 0.1.0；历史 V0.1 标签保留。面向 Claude Code 的资料收藏 skill。阅读全文后生成**不超过 400 字**的中文摘要，将元数据和全文入口保存到 MySQL，帮助用户先读摘要，再决定是否阅读全文。
 
 ## 功能
 
@@ -15,13 +15,12 @@
 需要 Node.js 20+、可访问的 MySQL，以及已配置并登录的 [飞书 CLI](https://github.com/larksuite/cli)。当前数据库流程已在 MySQL 9.7.2 上实测。
 
 ```sh
-git clone https://github.com/jiamingyuan/docs-keeper.git "$HOME/.claude/skills/docs-keeper"
-cd "$HOME/.claude/skills/docs-keeper"
-git checkout V0.1
+git clone https://github.com/jiamingyuan/media-keeper.git "$HOME/.claude/skills/media-keeper"
+cd "$HOME/.claude/skills/media-keeper"
 npm ci --ignore-scripts
 ```
 
-该位置属于 Claude Code 的个人 skills 目录。也可将整个仓库放入项目的 `.claude/skills/docs-keeper`。本 skill 依赖辅助程序，安装后需要执行 `npm ci`。
+该位置属于 Claude Code 的个人 skills 目录。也可将整个仓库放入项目的 `.claude/skills/media-keeper`。本 skill 依赖辅助程序，安装后需要执行 `npm ci`。
 
 ### 数据库
 
@@ -41,17 +40,17 @@ mysql --user=root --password < schema.sql
 ### 配置
 
 ```sh
-mkdir -p "$HOME/.config/docs-keeper"
-chmod 700 "$HOME/.config/docs-keeper"
-cp config.example.json "$HOME/.config/docs-keeper/config.json"
-chmod 600 "$HOME/.config/docs-keeper/config.json"
+mkdir -p "$HOME/.config/media-keeper"
+chmod 700 "$HOME/.config/media-keeper"
+cp config.example.json "$HOME/.config/media-keeper/config.json"
+chmod 600 "$HOME/.config/media-keeper/config.json"
 ```
 
 在配置文件中填写数据库专用账号、密码、飞书 CLI 的可执行文件位置、现有 profile，以及允许保存正文和图片的工作区绝对路径。
 
 使用 `lark-cli profile list` 确认 profile。文档操作显式采用用户身份；复用现有登录态，需要用户拥有创建和读取飞书文档的权限。配置中不保存飞书 token，由 CLI 管理认证。
 
-配置文件须为 `0600`。也可通过 `DOCS_KEEPER_CONFIG` 环境变量或 helper 的 `--config` 参数指定其他配置文件。恢复记录默认放在 `~/.local/share/docs-keeper/jobs/`，可用 `stateDir` 配置覆盖。升级旧部署时兼容读取 `~/.config/docs_keeper/config.json`；SQL 账号名、`agent.useful_docs` 表名及 `DOCS_KEEPER_CONFIG` 环境变量保持原样。
+配置文件须为 `0600`。也可通过 `MEDIA_KEEPER_CONFIG` 环境变量或 helper 的 `--config` 参数指定其他配置文件。恢复记录默认放在 `~/.local/share/media-keeper/jobs/`，可用 `stateDir` 配置覆盖。升级旧部署时兼容读取 `~/.config/docs-keeper/config.json` 和 `~/.config/docs_keeper/config.json`，也兼容旧环境变量 `DOCS_KEEPER_CONFIG`。配置优先级为显式 `--config`、`MEDIA_KEEPER_CONFIG`、`DOCS_KEEPER_CONFIG`、默认配置目录（新名优先）。SQL 账号名、`agent.useful_docs` 表名及数据库串行锁沿用原值，现有收藏无需迁移。旧配置未指定 `stateDir` 时沿用其原名恢复目录，避免重复创建飞书副本。
 
 ```sh
 node scripts/keeper.mjs --version
@@ -63,9 +62,9 @@ node scripts/keeper.mjs types
 
 在 Claude Code 中直接说：
 
-> 用 docs-keeper 收藏这个网页：https://example.org/article
+> 用 media-keeper 收藏这个网页：https://example.org/article
 
-也可显式调用 `/docs-keeper`。查询和更新示例：
+也可显式调用 `/media-keeper`。查询和更新示例：
 
 > 找一下之前收藏的某篇文档，先给我摘要。
 >
@@ -102,10 +101,10 @@ npm test
 单元测试不连接数据库。配置好专用数据库后，可运行真实读写验收；测试记录放在事务中并回滚：
 
 ```sh
-DOCS_KEEPER_INTEGRATION=1 node --test test/database.test.mjs
+MEDIA_KEEPER_INTEGRATION=1 node --test test/database.test.mjs
 ```
 
-`test/live-copy.mjs --live` 是显式飞书写入验收，会保留一份标记为验收样本的文档和收藏。仅在需要该测试时运行：先把 `test/fixtures/fulltext.md` 放到配置工作区的 `docs-keeper-validation/fulltext.md`，把 `test/fixtures/check.png` 放到 `docs-keeper-validation/assets/check.png`，再从工作区运行该脚本。日常测试不会调用它。
+`test/live-copy.mjs --live` 是显式飞书写入验收，会保留一份标记为验收样本的文档和收藏。仅在需要该测试时运行：先把 `test/fixtures/fulltext.md` 放到配置工作区的 `media-keeper-validation/fulltext.md`，把 `test/fixtures/check.png` 放到 `media-keeper-validation/assets/check.png`，再从工作区运行该脚本。日常测试不会调用它。
 
 ## 能力边界
 

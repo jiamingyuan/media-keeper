@@ -9,13 +9,12 @@ import { callLark, readCopy } from './lark.mjs';
 
 export const columns = ['title','abstract','link','copied_lark_link','source','source_type','author','source_created_at'];
 const select = 'SELECT id,title,abstract,link,copied_lark_link,source,source_type,author,source_created_at,created_at,updated_at FROM useful_docs';
-export async function readConfig(file = process.env.DOCS_KEEPER_CONFIG) {
+export async function readConfig(file = process.env.MEDIA_KEEPER_CONFIG || process.env.DOCS_KEEPER_CONFIG) {
   if (!file) {
-    file = path.join(os.homedir(), '.config/docs-keeper/config.json');
-    try { await fs.access(file); }
-    catch (e) {
-      if (e.code !== 'ENOENT') throw e;
-      file = path.join(os.homedir(), '.config/docs_keeper/config.json');
+    for (const name of ['media-keeper', 'docs-keeper', 'docs_keeper']) {
+      file = path.join(os.homedir(), '.config', name, 'config.json');
+      try { await fs.access(file); break; }
+      catch (e) { if (e.code !== 'ENOENT') throw e; }
     }
   }
   const stat = await fs.stat(file);
@@ -23,8 +22,9 @@ export async function readConfig(file = process.env.DOCS_KEEPER_CONFIG) {
   const config = JSON.parse(await fs.readFile(file, 'utf8'));
   assert(config.mysql?.database === 'agent' && config.mysql.user && config.mysql.password, 'invalid_config', '缺少 agent 数据库专用连接配置');
   assert(config.lark?.profile && path.isAbsolute(config.lark.workspace), 'invalid_config', '缺少飞书 profile 或绝对工作区路径');
-  const legacyConfig = path.resolve(file) === path.join(os.homedir(), '.config/docs_keeper/config.json');
-  config.stateDir ||= path.join(os.homedir(), legacyConfig ? '.local/share/docs_keeper' : '.local/share/docs-keeper');
+  const legacyName = ['docs-keeper', 'docs_keeper'].find(name =>
+    path.resolve(file) === path.join(os.homedir(), '.config', name, 'config.json'));
+  config.stateDir ||= path.join(os.homedir(), '.local/share', legacyName || 'media-keeper');
   return config;
 }
 export async function connect(config) {
@@ -194,7 +194,8 @@ export async function main(argv = process.argv.slice(2)) {
     throw new KeeperError('unknown_command', '未知命令，请使用 --help');
   } finally { await db.end(); }
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+const invokedPath = process.argv[1] && await fs.realpath(path.resolve(process.argv[1])).catch(() => null);
+if (invokedPath && import.meta.url === pathToFileURL(invokedPath).href) {
   main().then(result => console.log(JSON.stringify({ ok: true, ...result }))).catch(e => {
     const known = e instanceof KeeperError;
     console.error(JSON.stringify({ ok: false, error: { code: known ? e.code : 'operation_failed',

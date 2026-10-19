@@ -3,7 +3,7 @@
 以下命令以 Claude Code 个人 skill 默认位置为例；安装在其他位置时修改 `SKILL_DIR`。参数使用 argv，长文本用 JSON 文件或 stdin，不把正文插入 shell 字符串。
 
 ```sh
-SKILL_DIR="$HOME/.claude/skills/docs-keeper"
+SKILL_DIR="$HOME/.claude/skills/media-keeper"
 node "$SKILL_DIR/scripts/keeper.mjs" doctor
 node "$SKILL_DIR/scripts/keeper.mjs" types
 node "$SKILL_DIR/scripts/keeper.mjs" check ./record.json
@@ -49,7 +49,7 @@ JSON 文件参数可用 `-` 表示 stdin。成功输出 `{ok:true,status,record|
 ## 网页提取
 
 ```sh
-node "$SKILL_DIR/scripts/fetch.mjs" https://example.org/article ./docs-keeper-draft
+node "$SKILL_DIR/scripts/fetch.mjs" https://example.org/article ./media-keeper-draft
 ```
 
 生成 `article.md`、`metadata.json`，保留原始HTML为 `source.html`，只输出路径和元数据，不调用模型。先读元数据，再完整读取正文。脚本支持公开HTML/纯文本/Markdown，**不处理登录、执行网页JS、PDF解析或视频转写**；这些场景使用相应的已授权工具或请用户补全文。脚本绝不把提取成功当作全文完整的证明。
@@ -62,6 +62,6 @@ node "$SKILL_DIR/scripts/fetch.mjs" https://example.org/article ./docs-keeper-dr
 
 `copy_verification_failed` 或 `copy_warnings`：检查返回的副本URL和警告，修正后重试。只有实际核对接受了降级才传 `accept_copy_warnings:true`；在给用户的回复里列出降级。
 
-恢复记录在 `~/.local/share/docs-keeper/jobs/`（或配置的 `stateDir`，0700/0600）。创建成功而数据库失败时，重试同一内容会复用原副本。CLI创建结果不确定时返回 `copy_result_uncertain`，禁止盲目重试；通过CLI查找实际创建的文档，核对后把已存在URL作为 `copied_lark_link` 重新提交。未查明前停止，不自动删除任何文档。
+恢复记录在 `~/.local/share/media-keeper/jobs/`（或配置的 `stateDir`，0700/0600）。创建成功而数据库失败时，重试同一内容会复用原副本。CLI创建结果不确定时返回 `copy_result_uncertain`，禁止盲目重试；通过CLI查找实际创建的文档，核对后把已存在URL作为 `copied_lark_link` 重新提交。未查明前停止，不自动删除任何文档。
 
 字段：id、title、abstract、link、copied_lark_link、source、source_type、author、source_created_at、created_at、updated_at。当前类型为 `article`、`paper`、`blog`、`video`、`tech_doc`、`project_repo`；模型卡/API参考/技术指南选 `tech_doc`，项目仓库整体选 `project_repo`，仓库内的具体技术文档仍选 `tech_doc`。运行 `types` 查询数据库当前枚举；后续类型由用户授权迁移数据库后再同步 skill 分类说明，不在收藏时自动改表。

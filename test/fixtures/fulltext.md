@@ -1,7 +1,7 @@
-# docs-keeper 验收样文：全文、格式与失败恢复
+# media-keeper 验收样文：全文、格式与失败恢复
 
-来源：docs-keeper 验收样本  
-作者：docs-keeper 测试作者  
+来源：media-keeper 验收样本\
+作者：media-keeper 测试作者\
 创建日期：2026-10-16
 
 ## 核心结论
@@ -28,7 +28,7 @@ console.log(label, expected);
 2. 保留表格、代码和必要图片。
 3. 副本生成后重新读取，核对正文末尾。
 
-![验收色块](@./docs-keeper-validation/assets/check.png)
+![验收色块](@./media-keeper-validation/assets/check.png)
 
 ## 失败处理与适用限制
 

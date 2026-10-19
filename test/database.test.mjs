@@ -5,9 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { readConfig, connect, save, get, find } from '../scripts/keeper.mjs';
 
-test('real MySQL validates types, parameterization, deduplication, updates and constraints', { skip: process.env.DOCS_KEEPER_INTEGRATION !== '1' }, async () => {
+test('real MySQL validates types, parameterization, deduplication, updates and constraints', { skip: (process.env.MEDIA_KEEPER_INTEGRATION || process.env.DOCS_KEEPER_INTEGRATION) !== '1' }, async () => {
   const config = await readConfig();
-  config.stateDir = await fs.mkdtemp(path.join(os.tmpdir(), 'docs-keeper-db-test-'));
+  config.stateDir = await fs.mkdtemp(path.join(os.tmpdir(), 'media-keeper-db-test-'));
   const db = await connect(config);
   const stamp = Date.now();
   const [before] = await db.query('SELECT COUNT(*) AS n FROM useful_docs');
@@ -15,8 +15,8 @@ test('real MySQL validates types, parameterization, deduplication, updates and c
     await db.beginTransaction();
     const records = [];
     for (const type of ['article','paper','blog','video','tech_doc','project_repo']) {
-      const input = { title: `测试 ${stamp} ${type} O'Reilly'; DROP TABLE useful_docs; -- 😀`, source: 'docs-keeper 自动验收',
-        source_type: type, author: ['甲','乙'], abstract: '正文的结论与限制。', link: `https://example.org/docs-keeper-test/${stamp}/${type}`,
+      const input = { title: `测试 ${stamp} ${type} O'Reilly'; DROP TABLE useful_docs; -- 😀`, source: 'media-keeper 自动验收',
+        source_type: type, author: ['甲','乙'], abstract: '正文的结论与限制。', link: `https://example.org/media-keeper-test/${stamp}/${type}`,
         source_created_at: '2026-10-16T10:20:30.123456+08:00', full_text_confirmed: true };
       const result = await save(db, config, input);
       assert.equal(result.status, 'created'); assert.equal(result.record.source_type, type);

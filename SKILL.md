@@ -1,11 +1,11 @@
 ---
-name: docs-keeper
-description: "收藏用户指定的网页、文章、论文、博客或视频：阅读全文并生成不超过400字的中文摘要，保存来源、作者、原文时间及全文入口至 MySQL agent.useful_docs；原链接不可用时通过飞书 CLI 转存全文。用户说收藏、收录、保存到资料库、使用 docs-keeper，或查询/明确更新已有收藏时使用；普通网页问答和仅要求总结不自动入库。"
+name: media-keeper
+description: "收藏用户指定的网页、文章、论文、博客或视频：阅读全文并生成不超过400字的中文摘要，保存来源、作者、原文时间及全文入口至 MySQL agent.useful_docs；原链接不可用时通过飞书 CLI 转存全文。用户说收藏、收录、保存到资料库、使用 media-keeper，或查询/明确更新已有收藏时使用；普通网页问答和仅要求总结不自动入库。"
 metadata:
   version: "0.1"
 ---
 
-# docs-keeper
+# media-keeper
 
 帮助用户用低阅读成本判断是否值得读全文。只有用户提出收藏/保存请求才执行写入；用户要求收藏本身已授权保存及必要的飞书全文副本，不重复索要例行确认。
 
@@ -13,7 +13,7 @@ metadata:
 
 辅助程序位于 `${CLAUDE_SKILL_DIR}/scripts/keeper.mjs`、`${CLAUDE_SKILL_DIR}/scripts/fetch.mjs`。使用环境中可用的 `node`。先读 [references/workflow.md](references/workflow.md)，其中有完整 JSON 输入及时间、查重、重试规则。摘要前读 [references/abstract.md](references/abstract.md)。首次安装按仓库 README 配置数据库和飞书 CLI。
 
-配置从 `~/.config/docs-keeper/config.json` 读取（兼容旧的下划线目录，也可通过 `DOCS_KEEPER_CONFIG` 或 `--config` 指定）。不要把数据库口令写进提示、命令行、日志或 SKILL.md。所有飞书操作优先复用本机 `lark-cli` 现有 profile 和登录态；仅使用配置中指定的身份和工作区。
+配置从 `~/.config/media-keeper/config.json` 读取（兼容旧的 `docs-keeper`、`docs_keeper` 配置目录，也可通过 `MEDIA_KEEPER_CONFIG` 或 `--config` 指定；旧环境变量 `DOCS_KEEPER_CONFIG` 仍可用）。不要把数据库口令写进提示、命令行、日志或 SKILL.md。所有飞书操作优先复用本机 `lark-cli` 现有 profile 和登录态；仅使用配置中指定的身份和工作区。
 
 ## 执行流程
 
