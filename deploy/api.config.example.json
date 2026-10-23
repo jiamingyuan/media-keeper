@@ -1,0 +1,13 @@
+{
+  "mysql": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "database": "agent",
+    "user": "media_keeper_api",
+    "password": "REPLACE_WITH_READ_ONLY_PASSWORD"
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 3001
+  }
+}
