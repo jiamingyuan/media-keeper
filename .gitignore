@@ -10,4 +10,6 @@ config.json
 
 dist/
 *.tsbuildinfo
+__pycache__/
+*.pyc
 coverage/

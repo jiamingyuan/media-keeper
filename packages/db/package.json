@@ -1,6 +1,6 @@
 {
   "name": "@media-keeper/db",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "exports": {
@@ -10,7 +10,7 @@
     }
   },
   "dependencies": {
-    "@media-keeper/core": "0.3.0",
+    "@media-keeper/core": "0.4.0",
     "mysql2": "^3.15.3"
   }
 }

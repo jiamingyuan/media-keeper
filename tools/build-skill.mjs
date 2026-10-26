@@ -17,6 +17,9 @@ await fs.mkdir(output, { recursive: true });
 await build({ entryPoints: ['keeper', 'fetch'].map(name => path.join(root, `skills/media-keeper/scripts/${name}.mjs`)),
   outdir: path.join(output, 'scripts'), outExtension: { '.js': '.mjs' }, bundle: true, platform: 'node',
   format: 'esm', target: 'node20', external: Object.keys(dependencies) });
+for (const name of ['bilibili.py', 'audio-requirements.txt']) {
+  await fs.copyFile(path.join(root, 'skills/media-keeper/scripts', name), path.join(output, 'scripts', name));
+}
 await fs.cp(path.join(root, 'skills/media-keeper/SKILL.md'), path.join(output, 'SKILL.md'));
 await fs.cp(path.join(root, 'skills/media-keeper/references'), path.join(output, 'references'), { recursive: true });
 await fs.copyFile(path.join(root, 'deploy/skill.config.example.json'), path.join(output, 'config.example.json'));

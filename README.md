@@ -121,9 +121,9 @@ npm run dev
 
 默认构建 base 为 `/media-keeper/`，业务 API 为同一前缀下的 `api/`，因此宿主环境无需跨域。可用构建环境变量 `MODULE_PUBLIC_URL` 指定资源 base、`VITE_MEDIA_API_URL` 指定 API base；若改为跨域部署，相应服务器需单独配置 CORS。`MEDIA_KEEPER_API_ORIGIN` 仅配置 Vite 开发/预览代理的后端地址，不进入浏览器。
 
-## 容器部署（V0.3）
+## 容器部署
 
-正式入口为 [my-dashboard / Media](http://localhost:8080/tools/media-keeper)。独立容器 `media-keeper` 使用 `media-keeper:0.3.0` 应用镜像；[Dockerfile](deploy/Dockerfile) 基于用户指定的 `nginx:1.31-trixie`，固定本机 arm64 镜像摘要 `sha256:4c41e2d0a3a55b325ed572cd0200bdb72af1433c3daa2bca6ef8eea68ce504a2`。实际 Nginx 1.31.8、Node.js 24.20.0、npm / npx 11.19.0，依据[工具版本表](https://lcn6mqfic6vj.feishu.cn/wiki/SWDTwS9jVinKOTkr3PNclroCnMe)；应用依赖由锁文件确定，NestJS 12.2.0。构建阶段安装 TypeScript 等开发依赖，运行镜像只保留 API 运行依赖和已构建前端。
+正式入口为 [my-dashboard / Media](http://localhost:8080/tools/media-keeper)。当前 V0.4 源码的 Compose 定义应用镜像为 `media-keeper:0.4.0`，容器名为 `media-keeper`；本机现有容器仍运行 `media-keeper:0.3.0`，本次发布未重新构建或部署网站容器。[Dockerfile](deploy/Dockerfile) 基于用户指定的 `nginx:1.31-trixie`，固定本机 arm64 镜像摘要 `sha256:4c41e2d0a3a55b325ed572cd0200bdb72af1433c3daa2bca6ef8eea68ce504a2`。实际 Nginx 1.31.8、Node.js 24.20.0、npm / npx 11.19.0，依据[工具版本表](https://lcn6mqfic6vj.feishu.cn/wiki/SWDTwS9jVinKOTkr3PNclroCnMe)；应用依赖由锁文件确定，NestJS 12.2.0。构建阶段安装 TypeScript 等开发依赖，运行镜像只保留 API 运行依赖和已构建前端。
 
 Nginx 与 NestJS 在同一容器运行；API 使用 nginx 用户，仅监听容器内部 `127.0.0.1:3001`。Nginx 对外提供 `127.0.0.1:8081 → 80`，静态远程资源位于 `/media-keeper/`，API 为 `/media-keeper/api/`；`/healthz` 同时检查 Nginx、API 与数据库。任何一个服务进程退出时停止另一个，Docker 的 `unless-stopped` 策略负责重新启动。Docker 服务恢复后容器自动启动，手动 stop 后保持停止。
 
@@ -165,6 +165,8 @@ npm run keeper -- fetch https://example.org/article /tmp/media-keeper-article
 
 原链接可访问时保存原链接；没有可用原链接但已取得全文时，通过飞书 CLI 创建全文副本并回读。恢复记录由 `stateDir/jobs/` 保存，数据库失败后重试复用已有副本；CLI 结果不确定时必须先核对，不盲目重复创建。`doctor` 仅验证数据库，不代表飞书写入已经验收。
 
+Bilibili 投稿视频使用独立的 Python 音频脚本：免登录通过播放接口获取完整音轨，本机转写后由 Agent 生成 abstract；音频转写后立即删除，总结/保存结束再清理临时转写和元数据。支持分 P、主备音轨与时长完整性检查，访问失败时不使用简介代替。首次需独立 Python 3.9+ 音频环境与本地模型，操作及清理契约见 [Bilibili 音频流程](skills/media-keeper/references/bilibili.md)。模型/运行依赖可复用，不在每次任务后删除。
+
 HTML 提取不执行网页 JavaScript，不处理 PDF、登录页面或音视频转写。提取结果始终需要模型阅读全文并核对，不自动认定 `full_text_confirmed:true`。来源时间统一存 UTC；未标时区按 Asia/Shanghai，来源创建时间未知时留空。
 
 ## 构建可独立安装的 Skill
@@ -176,14 +178,15 @@ npm install --ignore-scripts
 node scripts/keeper.mjs --version
 ```
 
-产物含 Skill、references、配置示例及已打包的 core/db 代码；运行依赖由产物的 package.json 声明。安装依赖后，整个 `dist/media-keeper` 可复制到 Agent 的 skills 目录，脱离本仓库运行；不要只复制源码中的 `skills/media-keeper` 文件夹。构建工具也支持输出到尚不存在的指定目录：`node tools/build-skill.mjs /tmp/media-keeper-skill`。
+产物含 Skill、references、配置示例、Bilibili 音频脚本/依赖清单及已打包的 core/db 代码；运行依赖由产物的 package.json 声明。安装依赖后，整个 `dist/media-keeper` 可复制到 Agent 的 skills 目录，脱离本仓库运行；不要只复制源码中的 `skills/media-keeper` 文件夹。构建工具也支持输出到尚不存在的指定目录：`node tools/build-skill.mjs /tmp/media-keeper-skill`。
 
-全局安装应复制完整构建产物到 `~/.agents/skills/media-keeper` 并安装其中运行依赖，默认配置为 `~/.config/media-keeper/config.json`（0600）。本机已安装 0.3.0，沿用原有数据库账号、飞书 profile 和恢复状态目录；采集 Skill 在宿主机运行，不依赖查询容器。
+全局安装应复制完整构建产物到 `~/.agents/skills/media-keeper` 并安装其中运行依赖，默认配置为 `~/.config/media-keeper/config.json`（0600）。本机已同步安装 0.4.0，沿用原有数据库账号、飞书 profile 和恢复状态目录；采集 Skill 在宿主机运行，不依赖查询容器。
 
 ## 测试
 
 ```sh
 npm test
+npm run test:audio
 MEDIA_KEEPER_CONFIG=runtime/config.local.json MEDIA_KEEPER_INTEGRATION=1 npm test
 ```
 

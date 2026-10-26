@@ -23,8 +23,8 @@ NestJS 后端读取同一张表，提供列表、详情、来源类型与健康�
 ## 项目功能
 
 - 采集与收藏：支持 article、paper、podcast、video、tech_doc、project_repo 六种来源类型；其中 podcast 指小宇宙等音频播客，网站文章归 article；已有记录默认不覆盖，明确更新才修改。
-- 全文入口：优先原链接，必要时飞书副本与失败恢复；不以抓取片段冒充全文。提取器不直接处理需登录页面、PDF、网页 JS 或视频转写。
+- 全文入口：优先原链接，必要时飞书副本与失败恢复；不以抓取片段冒充全文。HTML 提取器不直接处理需登录页面、PDF、网页 JS 或视频转写；Bilibili 投稿视频由独立音频脚本免登录获取完整音轨、本机转写后生成摘要，任务媒体和临时转写在收尾清理。
 - 查询：五字段组合筛选、分页、排序、详情；API 无写入接口，启动不要求飞书配置。
 - 分发：开发时使用 npm workspaces；通过 build:skill 生成包含共享代码与运行依赖声明的独立 Skill 安装产物。
 
-当前源码与运行契约以 [README](../README.md) 为入口，历史及验证边界分别见 [V0.1](V0.1/iteration.md) 、[V0.2](V0.2/iteration.md) 和 [V0.3](V0.3/iteration.md)。
+当前源码与运行契约以 [README](../README.md) 为入口，历史及验证边界分别见 [V0.1](V0.1/iteration.md)、[V0.2](V0.2/iteration.md)、[V0.3](V0.3/iteration.md) 和 [V0.4](V0.4/iteration.md)。

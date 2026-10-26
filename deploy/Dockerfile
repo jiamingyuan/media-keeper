@@ -38,7 +38,7 @@ RUN npm ci --omit=dev --workspace=@media-keeper/api --ignore-scripts --no-audit 
 
 FROM runtime-base AS runtime
 LABEL org.opencontainers.image.title="media-keeper" \
-      org.opencontainers.image.version="0.3.0" \
+      org.opencontainers.image.version="0.4.0" \
       org.opencontainers.image.source="https://github.com/jiamingyuan/media-keeper"
 ENV NODE_ENV=production \
     MEDIA_KEEPER_API_CONFIG=/run/media-keeper/api.json

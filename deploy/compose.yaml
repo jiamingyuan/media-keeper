@@ -1,7 +1,7 @@
 name: media-keeper
 services:
   media-keeper:
-    image: media-keeper:0.3.0
+    image: media-keeper:0.4.0
     build:
       context: ..
       dockerfile: deploy/Dockerfile
