@@ -1,5 +1,7 @@
 # media-keeper V0.3 迭代记录
 
+> 本页保留 V0.3 当时的实现与验证。专用业务镜像和 Compose 部署已被后续方案替代；当前运行方式见 [架构](../architecture.md) 与 [V0.4](../V0.4/iteration.md)。
+
 ## 目标与来源
 
 2026-10-23 用户要求：“将media-keeper push到github，作为V0.3；通过这个镜像创建一个容器，就叫做media-keeper，下载后端所需工具……然后把media-keeper部署进去”。附图指定本机 `nginx:1.31-trixie`；版本依据为飞书[工具版本](https://lcn6mqfic6vj.feishu.cn/wiki/SWDTwS9jVinKOTkr3PNclroCnMe)。

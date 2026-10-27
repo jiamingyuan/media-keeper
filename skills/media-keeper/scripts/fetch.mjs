@@ -11,6 +11,7 @@ import { Readability } from '@mozilla/readability';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 import { assert, KeeperError, canonicalUrl } from '@media-keeper/core';
+import { isLootDropReportUrl, expandLootDropReport } from './loot-drop.mjs';
 
 export function extractPage(html, url) {
   const dom = new JSDOM(html, { url });
@@ -39,11 +40,15 @@ export function extractPage(html, url) {
   if (isPodcast) flags.push('podcast_transcript_required: 核对完整音频内容或逐字稿，节目简介和 show notes 不是全文');
   if (doc.querySelector('link[rel="next"],a[rel="next"],.pagination,.pager')) flags.push('possible_pagination: 检查是否还有后续页面');
   if (doc.querySelector('input[type="password"]') || /^(登录|登入|sign in|log in)/i.test(doc.title)) flags.push('possible_login_wall: 检查是否只取得登录页');
-  const article = new Readability(doc.cloneNode(true)).parse();
+  let lootDrop;
+  try { if (isLootDropReportUrl(url)) lootDrop = expandLootDropReport(doc); }
+  catch (error) { dom.window.close(); throw error; }
+  if (lootDrop) flags.push('loot_drop_report: 已展开分析正文，仍须阅读全文，按 loot-drop.md 撰写中文分析文档并保留双链接');
+  const article = lootDrop ? null : new Readability(doc.cloneNode(true)).parse();
   const root = article?.content ? new JSDOM(article.content, { url }) : null;
-  const main = root?.window.document.body || doc.querySelector('main,article') || doc.body;
+  const main = lootDrop?.main || root?.window.document.body || doc.querySelector('main,article') || doc.body;
   assert(main?.textContent.trim(), 'no_content', '网页没有可读取正文，请提供完整内容');
-  if (!article?.content) flags.push('extraction_fallback: 未识别到文章主体，必须人工排除导航和广告');
+  if (!article?.content && !lootDrop) flags.push('extraction_fallback: 未识别到文章主体，必须人工排除导航和广告');
   main.querySelectorAll('script,style,noscript,form,nav').forEach(x => x.remove());
   for (const el of main.querySelectorAll('[href],[src],img')) {
     for (const attr of ['href','src']) {
@@ -69,12 +74,13 @@ export function extractPage(html, url) {
   const type = [item['@type']].flat().join(',');
   const metadata = {
     requested_url: url, canonical_url_hint: doc.querySelector('link[rel="canonical"]')?.href || null,
-    title: item.headline || (isPodcast ? item.name : null) || article?.title || meta('og:title') || doc.title || null,
-    source: meta('og:site_name') || names(item.publisher)[0] || null,
+    title: (lootDrop && doc.querySelector('#startup-name')?.textContent.trim()) || item.headline || (isPodcast ? item.name : null) || article?.title || meta('og:title') || doc.title || null,
+    source: lootDrop ? 'Loot Drop' : meta('og:site_name') || names(item.publisher)[0] || null,
     author: names(item.author).join('、') || meta('author') || article?.byline || null,
     source_created_at: item.dateCreated || item.datePublished || meta('article:published_time') || meta('datePublished') || null,
-    source_type_hint: isPodcast ? 'podcast' : /ScholarlyArticle/.test(type) ? 'paper' : /BlogPosting/.test(type) ? 'article' : /VideoObject/.test(type) ? 'video'
+    source_type_hint: lootDrop ? 'article' : isPodcast ? 'podcast' : /ScholarlyArticle/.test(type) ? 'paper' : /BlogPosting/.test(type) ? 'article' : /VideoObject/.test(type) ? 'video'
       : /TechArticle|APIReference/.test(type) ? 'tech_doc' : /SoftwareSourceCode/.test(type) ? 'project_repo' : /Article/.test(type) ? 'article' : null,
+    ...(lootDrop ? { loot_drop_sections: lootDrop.sections } : {}),
     review_flags: [...new Set(flags)], full_text_confirmed: false
   };
   root?.window.close(); dom.window.close();

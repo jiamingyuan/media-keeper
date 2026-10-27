@@ -1,11 +1,8 @@
-# media-keeper 规则
+# media-keeper 项目原则
 
-- 使用同一仓库维护采集 Skill、查询后端和共享数据规则；Skill 与查询 API 共用资料库，采集不依赖 API 在线。来源：2026-10-23 用户要求“根据这里面所提示的方式，先对项目进行结构调整”，并提供单仓库、共享 core/db、采集与查询分离的结构建议图。
-- 后端框架采用 NestJS。来源：2026-10-23 用户明确要求“后端框架采用 nestjs”。
-- 查询 API 使用只读数据库账号，采集与 API 分别加载配置。来源：同次用户采纳的结构建议图；实现依据见 [数据库服务](../apps/api/src/database.service.ts) 与 [配置示例](../deploy/api.config.example.json)。
+核对日期：2026-10-27。当前技术方案见 [architecture.md](architecture.md)，术语定义见 [项目简介](project-brief.md)。
 
-- 前端通过 Module Federation 接入 my-dashboard，继承宿主 PingFang SC、主题与路由；Media 仅在工具页展示。来源：2026-10-23 用户确认设计，并要求“现在开始前端的开发吧，注意要通过module federation接入my-dashboard”。
+- **摘要可读性与长度**：面向没有读过原文的读者，用连贯中文讲明讨论对象、问题和主要内容；必要术语随文解释，保留关键条件与不确定性。最多 400 个 Unicode 字符（含标点和空白），不靠截断或堆砌术语压缩。来源：V0.1 既有摘要长度契约，以及 2026-10-26 用户要求先让未读者听懂内容、再决定是否阅读全文；见 [V0.1](V0.1/iteration.md)、[V0.4](V0.4/iteration.md) 和 [摘要指导](../skills/media-keeper/references/abstract.md)。
+- **网站字体**：网站内所有文字统一使用 `PingFang SC`。来源：2026-10-23 用户原话“网站内所有字体都用 PingFang SC 吧”；设计与实现经过见 [V0.2](V0.2/iteration.md)。
 
-- `podcast` 仅指音频播客（如小宇宙节目/单集），网站文章归 `article`。来源：2026-10-23 用户纠正 source_type 的含义；同步代码、采集说明和 MySQL 枚举。
-
-当前迭代的范围与临时取舍记在对应 iteration.md；用户任务授权和候选方向不存入本文件。
+- **Loot Drop 报告交付**：命名为“{公司名称} Loot Drop 分析”，中国公司先查证中文名；摘要依据原文，飞书正文说明主要分析、依据、数据与限制，避免仅几句要点，并保留原文与飞书双入口。来源：2026-10-27 用户的来源接入及命名/正文质量要求；处理范围、完整模式与独立分析的差异见 [分析规范](../skills/media-keeper/references/loot-drop.md)。

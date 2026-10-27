@@ -1,6 +1,8 @@
 # media-keeper
 
-资料收藏与查询单仓库。采集 Skill 负责取得全文、由 Agent 生成最多 400 个 Unicode 字符的中文摘要，并写入 MySQL；NestJS API 使用同一张表提供只读查询。采集流程独立于 API 运行。React 前端以 Module Federation 远程模块接入 my-dashboard，列表完整展示摘要，再进入详情阅读原文或飞书副本。
+当前源码版本 **0.5.0**，Git 发布标签 **V0.5.0**。
+
+资料收藏与查询单仓库。采集 Skill 负责取得全文、由 Agent 生成最多 400 个 Unicode 字符的中文摘要，并写入 MySQL；摘要面向未读原文的读者，先讲清对象和问题，再说明主要观点、做法或发现，必要术语随文解释。NestJS API 使用同一张表提供只读查询。采集流程独立于 API 运行。React 前端以 Module Federation 远程模块接入 my-dashboard，列表完整展示摘要，再进入详情阅读原文或飞书副本。
 
 原名 docs-keeper；现有数据库表、旧配置路径、`DOCS_KEEPER_CONFIG` 和收藏内容继续兼容，历史 V0.1 标签保留。
 
@@ -14,8 +16,8 @@ packages/core/            通用字段、URL、时间与查询参数规则
 packages/db/              MySQL 连接、参数化查询和持久化
 database/                schema.sql 与 migrations
 tests/                    API、数据库与真实 Federation 浏览器测试
-tools/                    开发命令入口、独立 Skill 构建工具
-deploy/                   Dockerfile、Compose、Nginx、入口脚本和配置示例
+tools/                    开发命令入口、独立 Skill 构建及容器部署打包工具
+deploy/                   独立容器启动、Nginx、入口脚本和配置示例
 ```
 
 使用 npm workspaces，根目录只维护一份 package-lock.json。开发环境使用 Node.js 24.9+；单独打包的 Skill 支持 Node.js 20+。
@@ -123,11 +125,20 @@ npm run dev
 
 ## 容器部署
 
-正式入口为 [my-dashboard / Media](http://localhost:8080/tools/media-keeper)。当前 V0.4 源码的 Compose 定义应用镜像为 `media-keeper:0.4.0`，容器名为 `media-keeper`；本机现有容器仍运行 `media-keeper:0.3.0`，本次发布未重新构建或部署网站容器。[Dockerfile](deploy/Dockerfile) 基于用户指定的 `nginx:1.31-trixie`，固定本机 arm64 镜像摘要 `sha256:4c41e2d0a3a55b325ed572cd0200bdb72af1433c3daa2bca6ef8eea68ce504a2`。实际 Nginx 1.31.8、Node.js 24.20.0、npm / npx 11.19.0，依据[工具版本表](https://lcn6mqfic6vj.feishu.cn/wiki/SWDTwS9jVinKOTkr3PNclroCnMe)；应用依赖由锁文件确定，NestJS 12.2.0。构建阶段安装 TypeScript 等开发依赖，运行镜像只保留 API 运行依赖和已构建前端。
+部署直接使用本机已有的 `node-nginx:24.20.0-1.31-trixie` 镜像，包含 Node.js 24.20.0、npm 11.19.0 和 Nginx 1.31.8。容器名为 `media-keeper`，由 docker run 创建独立容器，在 Docker Desktop 中与 my-dashboard 并列，不嵌套于同名 Compose 分组。不构建 media-keeper 专用镜像；原自定义 Dockerfile 已由本地打包流程替代。正式入口为 [my-dashboard / Media](http://localhost:8080/tools/media-keeper)。
 
-Nginx 与 NestJS 在同一容器运行；API 使用 nginx 用户，仅监听容器内部 `127.0.0.1:3001`。Nginx 对外提供 `127.0.0.1:8081 → 80`，静态远程资源位于 `/media-keeper/`，API 为 `/media-keeper/api/`；`/healthz` 同时检查 Nginx、API 与数据库。任何一个服务进程退出时停止另一个，Docker 的 `unless-stopped` 策略负责重新启动。Docker 服务恢复后容器自动启动，手动 stop 后保持停止。
+本机需要 Docker、Node/npm 和该已有镜像。首次获取源码先 `npm ci --ignore-scripts`。打包命令在宿主构建 API/Web，并用 node-nginx 临时容器按锁文件安装 Linux 生产依赖；只包含运行所需的 API、前端静态资源、core/db、依赖和启动配置，不复制本机 node_modules、源码测试、数据库口令或采集 Skill 的 Python 模型。
 
-复用现有外部 Docker 网络 `agent-services` 与 MySQL 容器 `mysql-base`。首次在其他机器准备该网络、数据库和只读账号后，再配置：
+```sh
+npm run package:deploy
+npm run deploy
+docker ps --filter name=^/media-keeper$
+curl --noproxy '*' http://127.0.0.1:8081/healthz
+```
+
+打包产物在 Git 忽略的 `runtime/deploy/releases/`，`runtime/deploy/current` 指向最近一次完整产物。它们是运行容器必需的部署文件，不是临时报告；容器以只读挂载使用，不能在运行时删除当前产物。安装中间文件位于系统临时目录并在打包结束后清理，临时安装容器自动删除。发布新产物后重新创建容器才切换运行版本，旧产物可在确认未被容器使用后清理。
+
+MySQL 继续使用现有 `mysql-base`，复用 `agent-services` 网络。首次在其他机器准备网络、数据库和只读账号后配置：
 
 ```sh
 mkdir -p runtime
@@ -136,18 +147,9 @@ cp deploy/api.config.example.json runtime/api.container.local.json
 chmod 600 runtime/api.container.local.json
 ```
 
-填写只读口令，将 `mysql.host` 改为 `mysql-base`；server 使用 `127.0.0.1:3001`。配置文件通过只读 bind mount 挂入容器，再复制为 nginx 用户持有的 0600 文件。`runtime/` 不进入 Git 或 Docker 构建上下文，口令不进入镜像、环境变量或命令行。当前本机配置已完成，后续更新无需再次复制示例覆盖口令。
+填写只读账号，将 mysql.host 设为 mysql-base，server 为 127.0.0.1:3001；现有配置无需重复复制。配置只读挂载，启动时复制为 nginx 用户持有的 0600 文件，不进入镜像或打包产物。Nginx 对外为 `127.0.0.1:8081 → 80`，NestJS 仅容器内 3001。健康检查覆盖 Nginx、API 与数据库；任一服务进程退出时联动停止，由 Docker 的 unless-stopped 策略重启整个容器。
 
-```sh
-docker compose -f deploy/compose.yaml up -d --build --wait
-docker compose -f deploy/compose.yaml ps
-curl --noproxy '*' http://127.0.0.1:8081/healthz
-docker compose -f deploy/compose.yaml logs --tail=100
-```
-
-my-dashboard 与 media-keeper 加入同一个 `agent-services` 网络。宿主的 `ops/nginx/default.conf` 将整个 `/media-keeper/` 路径代理到 `http://media-keeper:80`，使用 Docker DNS 重新解析容器名；Federation 清单继续使用 `/media-keeper/mf-manifest.json`。宿主仅提供自己的静态页面，不再需要本机 Node API 或 Media 静态副本。manifest、入口和 API 禁止缓存，带哈希的资源长期缓存，缺失远程资源返回 404。本机旧 API 已停止，真实网站和容器重启已验证。
-
-更新业务代码后重新执行上述 Compose 构建命令即可；宿主配置未变时无需重新构建 my-dashboard。API 没有发布独立 3001 端口，当前只在本机开放 8081，未配置公网认证。
+my-dashboard 通过 Docker DNS 将 `/media-keeper/` 代理到 `media-keeper:80`，同域提供 Federation 清单、静态资源和 API；宿主配置无需随本次容器替换修改。未配置公网入口或新增认证。采集 Skill 继续在宿主机运行，不进入网站容器。
 
 ## 采集 Skill
 
@@ -163,9 +165,11 @@ npm run keeper -- fetch https://example.org/article /tmp/media-keeper-article
 
 模型实际阅读完整内容、整理元数据后，才可调用 `save ./record.json`；只有用户明确要求更新时才用 `update ID --confirmed ./patch.json`。重复收藏不会覆盖，来源与标题相同仅表示候选。完整字段契约见 [工具契约](skills/media-keeper/references/workflow.md)，摘要取舍见 [摘要指导](skills/media-keeper/references/abstract.md)。
 
-原链接可访问时保存原链接；没有可用原链接但已取得全文时，通过飞书 CLI 创建全文副本并回读。恢复记录由 `stateDir/jobs/` 保存，数据库失败后重试复用已有副本；CLI 结果不确定时必须先核对，不盲目重复创建。`doctor` 仅验证数据库，不代表飞书写入已经验收。
+普通来源的原链接可访问时保存原链接；没有可用原链接但已取得全文时，通过飞书 CLI 创建全文副本并回读。Loot Drop 报告按下述专用规则保留双链接。恢复记录由 `stateDir/jobs/` 保存，数据库失败后重试复用已有副本；CLI 结果不确定时必须先核对，不盲目重复创建。`doctor` 仅验证数据库，不代表飞书写入已经验收。
 
 Bilibili 投稿视频使用独立的 Python 音频脚本：免登录通过播放接口获取完整音轨，本机转写后由 Agent 生成 abstract；音频转写后立即删除，总结/保存结束再清理临时转写和元数据。支持分 P、主备音轨与时长完整性检查，访问失败时不使用简介代替。首次需独立 Python 3.9+ 音频环境与本地模型，操作及清理契约见 [Bilibili 音频流程](skills/media-keeper/references/bilibili.md)。模型/运行依赖可复用，不在每次任务后删除。
+
+Loot Drop 的 `/startup/` 报告会提取分析卡片的完整展开正文；Agent 阅读原报告后写摘要，按 [Loot Drop 分析规范](skills/media-keeper/references/loot-drop.md) 核实中文名、统一标题为“{公司名称} Loot Drop 分析”，并制作有实质内容的中文飞书分析文档；完整转载或改写须满足相应内容/授权条件，并同时保存 `link` 与 `copied_lark_link`。来源为 `Loot Drop`，默认类型仍是 `article`。译稿和提取材料使用系统临时目录，沿用副本回读与失败恢复。
 
 HTML 提取不执行网页 JavaScript，不处理 PDF、登录页面或音视频转写。提取结果始终需要模型阅读全文并核对，不自动认定 `full_text_confirmed:true`。来源时间统一存 UTC；未标时区按 Asia/Shanghai，来源创建时间未知时留空。
 
@@ -180,7 +184,7 @@ node scripts/keeper.mjs --version
 
 产物含 Skill、references、配置示例、Bilibili 音频脚本/依赖清单及已打包的 core/db 代码；运行依赖由产物的 package.json 声明。安装依赖后，整个 `dist/media-keeper` 可复制到 Agent 的 skills 目录，脱离本仓库运行；不要只复制源码中的 `skills/media-keeper` 文件夹。构建工具也支持输出到尚不存在的指定目录：`node tools/build-skill.mjs /tmp/media-keeper-skill`。
 
-全局安装应复制完整构建产物到 `~/.agents/skills/media-keeper` 并安装其中运行依赖，默认配置为 `~/.config/media-keeper/config.json`（0600）。本机已同步安装 0.4.0，沿用原有数据库账号、飞书 profile 和恢复状态目录；采集 Skill 在宿主机运行，不依赖查询容器。
+全局安装应复制完整构建产物到 `~/.agents/skills/media-keeper` 并安装其中运行依赖，默认配置为 `~/.config/media-keeper/config.json`（0600）。本机已同步安装 0.5.0，沿用原有数据库账号、飞书 profile 和恢复状态目录；采集 Skill 在宿主机运行，不依赖查询容器。
 
 ## 测试
 
@@ -192,6 +196,6 @@ MEDIA_KEEPER_CONFIG=runtime/config.local.json MEDIA_KEEPER_INTEGRATION=1 npm tes
 
 默认测试不连接数据库，真实数据库测试需要显式启用；API 权限测试还需要配置好只读的 API 配置。数据库样本在事务中回滚。测试覆盖原采集规则、HTTP 参数、五字段组合筛选、日期预设与微秒边界、类型计数、分页、排序、详情与只读权限。
 
-浏览器联调：`npm run test:web`。测试预览会占用 8081；已有部署时先运行 `docker compose -f deploy/compose.yaml stop`，测试后用 `docker compose -f deploy/compose.yaml up -d --wait` 恢复。需要同级的 my-dashboard 仓库已安装依赖；其他位置可设置 `MY_DASHBOARD_ROOT`。用例自动构建并启动真实宿主和远程模块，以测试 HTTP 响应隔离业务数据库，覆盖筛选参数、分页/详情/刷新、主题字体、六类图标、小屏、重试、迟到响应取消与危险链接；真实 API 另由上面的集成测试验证。默认 Chromium，截图和失败轨迹在系统临时目录，未声称验证 Safari / Firefox。
+浏览器联调：`npm run test:web`。测试预览会占用 8081；已有部署时先运行 `docker stop media-keeper`，测试后用 `docker start media-keeper` 恢复。需要同级的 my-dashboard 仓库已安装依赖；其他位置可设置 `MY_DASHBOARD_ROOT`。用例自动构建并启动真实宿主和远程模块，以测试 HTTP 响应隔离业务数据库，覆盖筛选参数、分页/详情/刷新、主题字体、六类图标、小屏、重试、迟到响应取消与危险链接；真实 API 另由上面的集成测试验证。默认 Chromium，截图和失败轨迹在系统临时目录，未声称验证 Safari / Firefox。
 
 `skills/media-keeper/test/live-copy.mjs --live` 会创建并保留飞书验收文档和收藏，只有明确需要该写入验收时才运行。首次建表、迁移、账号授权和飞书认证均不在 npm 测试中自动执行。

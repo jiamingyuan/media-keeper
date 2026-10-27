@@ -1,6 +1,6 @@
 {
   "name": "media-keeper-workspace",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -23,7 +23,9 @@
     "dev:web": "npm run dev --workspace=@media-keeper/web",
     "preview:web": "npm run preview --workspace=@media-keeper/web",
     "test:web": "playwright test",
-    "test:audio": "python3 -B -m unittest discover -s skills/media-keeper/test -p 'bilibili_test.py'"
+    "test:audio": "python3 -B -m unittest discover -s skills/media-keeper/test -p 'bilibili_test.py'",
+    "package:deploy": "node tools/package-deploy.mjs",
+    "deploy": "bash deploy/start.sh"
   },
   "devDependencies": {
     "@nestjs/testing": "12.2.0",

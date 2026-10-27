@@ -1,26 +1,26 @@
 ---
 name: media-keeper
-description: "收藏用户指定的网页、文章、论文、播客或视频：阅读全文并生成不超过400字的中文摘要，保存来源、作者、原文时间及全文入口至 MySQL agent.useful_docs；原链接不可用时通过飞书 CLI 转存全文。用户说收藏、收录、保存到资料库、使用 media-keeper，或查询/明确更新已有收藏时使用；普通网页问答和仅要求总结不自动入库。"
+description: "收藏用户指定的网页、文章、论文、播客或视频：阅读全文并生成不超过400字的中文摘要，保存来源、作者、原文时间及全文入口至 MySQL agent.useful_docs；原链接不可用时通过飞书 CLI 转存全文；Loot Drop 报告生成中文分析文档并保存原文与飞书双链接。用户说收藏、收录、保存到资料库、使用 media-keeper，或查询/明确更新已有收藏时使用；普通网页问答和仅要求总结不自动入库。"
 metadata:
-  version: "0.4"
+  version: "0.5.0"
 ---
 
 # media-keeper
 
-帮助用户用低阅读成本判断是否值得读全文。只有用户提出收藏/保存请求才执行写入；用户要求收藏本身已授权保存及必要的飞书全文副本，不重复索要例行确认。
+面向没有读过原文的读者，用清楚、连贯的中文讲明内容，再帮助其判断是否继续阅读。只有用户提出收藏/保存请求才执行写入；用户要求收藏本身已授权保存及必要的飞书全文副本，不重复索要例行确认。
 
 ## 工具与入口
 
-辅助程序位于 `${CLAUDE_SKILL_DIR}/scripts/keeper.mjs`、`${CLAUDE_SKILL_DIR}/scripts/fetch.mjs`。使用环境中可用的 `node`。先读 [references/workflow.md](references/workflow.md)，其中有完整 JSON 输入及时间、查重、重试规则。摘要前读 [references/abstract.md](references/abstract.md)。Bilibili 视频先读 [references/bilibili.md](references/bilibili.md)，通过 `scripts/bilibili.py` 免登录获取完整音轨并本机转写，再由 Agent 生成摘要；总结/保存收尾清理音频与临时转写。首次安装按仓库 README 配置数据库和飞书 CLI。单仓库开发时使用根目录 npm 命令；独立安装必须使用 build:skill 的完整产物，不能只复制源码中的 Skill 子目录。
+辅助程序位于 `${CLAUDE_SKILL_DIR}/scripts/keeper.mjs`、`${CLAUDE_SKILL_DIR}/scripts/fetch.mjs`。使用环境中可用的 `node`。先读 [references/workflow.md](references/workflow.md)，其中有完整 JSON 输入及时间、查重、重试规则。摘要前读 [references/abstract.md](references/abstract.md)。Bilibili 视频先读 [references/bilibili.md](references/bilibili.md)，通过 `scripts/bilibili.py` 免登录获取完整音轨并本机转写，再由 Agent 生成摘要；总结/保存收尾清理音频与临时转写。Loot Drop（loot-drop.io/startup/）报告先读 [references/loot-drop.md](references/loot-drop.md)，展开完整报告后写摘要，核实中国公司的中文名，统一命名为“{公司名称} Loot Drop 分析”，撰写有实质内容的飞书分析并保存双链接；完整转载或改写须满足相应内容/授权条件，正文质量与覆盖核对见该参考。首次安装按仓库 README 配置数据库和飞书 CLI。单仓库开发时使用根目录 npm 命令；独立安装必须使用 build:skill 的完整产物，不能只复制源码中的 Skill 子目录。
 
 配置从 `~/.config/media-keeper/config.json` 读取（兼容旧的 `docs-keeper`、`docs_keeper` 配置目录，也可通过 `MEDIA_KEEPER_CONFIG` 或 `--config` 指定；旧环境变量 `DOCS_KEEPER_CONFIG` 仍可用）。不要把数据库口令写进提示、命令行、日志或 SKILL.md。所有飞书操作优先复用本机 `lark-cli` 现有 profile 和登录态；仅使用配置中指定的身份和工作区。
 
 ## 执行流程
 
 1. **先查重复**：用 `check` 查询已知原链接；取得来源和标题后再查一次。`existing` 直接回复已有编号、摘要和全文入口，不覆盖。`candidates` 先核对是否同篇，无法确定就询问；不得仅因来源/标题相同就断言同篇。只有用户确认另一篇时才传 `confirm_distinct:true`。
-2. **取得全文**：公开 HTML 可用 `fetch.mjs URL 输出目录` 提取正文和元数据，然后实际阅读全文。脚本只提取，不保证完整，须检查其 `review_flags`、原文末尾、分页、折叠及关键图表。需要登录的页面使用已有授权工具或请用户提供完整正文/导出文件；不获取或迁移本机浏览器 cookie。飞书文档用现有 `lark-doc` skill 及 CLI 获取全文。论文确认读到完整论文而非摘要页；Bilibili 视频一律走完整音轨→本机转写→摘要流程，不依赖网页或 CC 字幕接口；其他视频必须取得完整字幕/转写。音频播客必须取得完整音频内容或完整逐字稿，不用简介或 show notes 冒充全文。截图或片段不足以认定全文。
-3. **整理元数据并总结**：优先原题，无题再拟定。`source` 仅写网站/公众号/机构名称，不写 URL，无法辨认填“来源未注明”。`author` 仅采用原文明确署名，可为空，多作者按原顺序用“、”分隔。来源创建/首次发布时间缺失则为空，不拿修改、抓取、版权年份或飞书副本时间替代。
-4. **决定全文入口**：稳定且可直接访问的原文 URL 写入 `link`，不建副本；只有需要登录、失效、临时签名或没有原链接，但已有完整内容时，才将全文整理为 Markdown 并提供 `copy_markdown_path`。不要以摘要替代副本正文。复制时保留顺序、标题、表格、代码、引用、链接和必要图片，标明缺失内容。飞书原生文档需复制时按 `lark-drive` 的 `files copy` 能力保留资源，再把已核对的副本 URL 交给 helper，不用重新拼正文造成损失。
+2. **取得全文**：公开 HTML 可用 `fetch.mjs URL 输出目录` 提取正文和元数据，然后实际阅读全文。Loot Drop 报告由提取器专门展开分析正文，不用卡片短预览代替全文。脚本只提取，不保证完整，须检查其 `review_flags`、原文末尾、分页、折叠及关键图表。需要登录的页面使用已有授权工具或请用户提供完整正文/导出文件；不获取或迁移本机浏览器 cookie。飞书文档用现有 `lark-doc` skill 及 CLI 获取全文。论文确认读到完整论文而非摘要页；Bilibili 视频一律走完整音轨→本机转写→摘要流程，不依赖网页或 CC 字幕接口；其他视频必须取得完整字幕/转写。音频播客必须取得完整音频内容或完整逐字稿，不用简介或 show notes 冒充全文。截图或片段不足以认定全文。
+3. **整理元数据并总结**：普通来源优先原题，无题再拟定；Loot Drop 按专用参考核实公司名并采用统一分析标题。`source` 仅写网站/公众号/机构名称，不写 URL，无法辨认填“来源未注明”。`author` 仅采用原文明确署名，可为空，多作者按原顺序用“、”分隔。来源创建/首次发布时间缺失则为空，不拿修改、抓取、版权年份或飞书副本时间替代。
+4. **决定全文入口**：稳定且可直接访问的原文 URL 写入 `link`，通常不建副本；Loot Drop 报告例外：保留 `link`，并用按专用参考撰写的分析稿 `copy_markdown_path` 创建飞书文档，或传已核对的 `copied_lark_link`，两个入口都入库。其他来源只有需要登录、失效、临时签名或没有原链接，但已有完整内容时，才将全文整理为 Markdown 并提供 `copy_markdown_path`。不要以摘要替代副本正文。复制时保留顺序、标题、表格、代码、引用、链接和必要图片，标明缺失内容。飞书原生文档需复制时按 `lark-drive` 的 `files copy` 能力保留资源，再把已核对的副本 URL 交给 helper，不用重新拼正文造成损失。
 5. **保存并核验**：`save` 仅在全文已实际获取和阅读后设置 `full_text_confirmed:true`。helper 会限长、校验类型、串行查重、调用 CLI 创建副本并回读，再参数化入库。检查其返回的 `warnings`。不得绕过 helper 用临时 SQL 拼接写入。失败时如实说明，按恢复说明处理，不自动反复创建副本。Bilibili 任务无论总结/保存成功、失败或取消，收尾均执行专用 `cleanup` 删除本次系统临时目录；音频转写后已立即删除。不得删除模型缓存、用户文件或飞书副本恢复状态。
 
 `source_type` 分类收藏对象本身：
