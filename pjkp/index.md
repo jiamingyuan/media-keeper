@@ -2,7 +2,7 @@
 
 记录更新：2026-10-27。当前源码版本 0.5.0，发布引用 main / V0.5.0；基于 V0.4 `5b5acd1cf576f7c2961493a66a0adb1df29ed91c` 归档后续部署、摘要与 Loot Drop 改动。网站容器未因本次发布重新部署；用户整体验收结论尚未记录。
 
-项目根目录：`/Users/jiamingyuan/Desktop/ai-infra/media-keeper`；仓库：<https://github.com/jiamingyuan/media-keeper>。发布前已核对 origin/main 与 V0.4 基线一致；本次归档的确切提交以 GitHub main / V0.5.0 引用解析为准。
+项目根目录：`/Users/jiamingyuan/Desktop/ai-infra/media-keeper`；仓库：<https://github.com/jiamingyuan/media-keeper>。V0.5.0 标签固定首次发布提交 `8da17e2`；main 在同一 0.5.0 版本追加维护 README 的 Agent 安装与升级指引，验证及范围见 V0.5.0 迭代。
 
 ## 记录入口
 

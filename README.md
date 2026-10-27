@@ -173,18 +173,113 @@ Loot Drop 的 `/startup/` 报告会提取分析卡片的完整展开正文；Age
 
 HTML 提取不执行网页 JavaScript，不处理 PDF、登录页面或音视频转写。提取结果始终需要模型阅读全文并核对，不自动认定 `full_text_confirmed:true`。来源时间统一存 UTC；未标时区按 Asia/Shanghai，来源创建时间未知时留空。
 
-## 构建可独立安装的 Skill
+## Agent 安装与升级 Skill
+
+本节供负责部署的 Agent 执行，示例适用于 macOS / Linux，目标为 `~/.agents/skills/media-keeper`。其他 Agent 使用其实际的 skills 目录，修改下方 `SKILL_DIR` 即可。采集 Skill 在 Agent 宿主机连接 MySQL、调用飞书 CLI；安装它只需要构建 Skill 产物，网站服务按上面的容器章节独立部署。
+
+### 1. 检查环境与现有安装
+
+- 从仓库根目录执行。已有源码时复用该仓库；没有源码时可先 `git clone https://github.com/jiamingyuan/media-keeper.git`。本版版本为 `0.5.0`；`V0.5.0` 标签固定首次发布代码，同版本后续文档维护在 `main`。
+- 源码构建需要 Node.js 24.9+ 和 npm；安装后的独立 Skill 运行需要 Node.js 20+。Agent 负责阅读和生成摘要，helper 不内置模型 API。
+- 准备能够从宿主访问的 `agent.useful_docs`，采集账号需要 `SELECT, INSERT, UPDATE`。已有数据库按前文核对结构，安装 Skill 不自动重建数据库或重复迁移。
+- 先检查 `lark-cli --help`、`lark-cli profile list`，复用已有配置的 profile 与用户登录态。缺 CLI、登录或连接参数时，只补齐缺失部分，不自行切换 profile、创建新应用或改用其他身份。首次安装 CLI 可参考[飞书 CLI 官方仓库](https://github.com/larksuite/cli)。
+- 升级前结束正在执行的该 Skill 任务，并确认配置、`stateDir`、音频环境和模型的位置。下面替换的是 Skill 代码目录；自有文件若放在旧安装目录内，先核对其保留方式，避免随代码替换而失去入口。
+
+源码依赖只需在首次获取或锁文件变化时安装：
 
 ```sh
-npm run build:skill
-cd dist/media-keeper
-npm install --ignore-scripts
-node scripts/keeper.mjs --version
+npm ci --ignore-scripts
 ```
 
-产物含 Skill、references、配置示例、Bilibili 音频脚本/依赖清单及已打包的 core/db 代码；运行依赖由产物的 package.json 声明。安装依赖后，整个 `dist/media-keeper` 可复制到 Agent 的 skills 目录，脱离本仓库运行；不要只复制源码中的 `skills/media-keeper` 文件夹。构建工具也支持输出到尚不存在的指定目录：`node tools/build-skill.mjs /tmp/media-keeper-skill`。
+### 2. 构建、验证并安装
 
-全局安装应复制完整构建产物到 `~/.agents/skills/media-keeper` 并安装其中运行依赖，默认配置为 `~/.config/media-keeper/config.json`（0600）。本机已同步安装 0.5.0，沿用原有数据库账号、飞书 profile 和恢复状态目录；采集 Skill 在宿主机运行，不依赖查询容器。
+以下命令在同一个 shell 中执行。先在系统临时目录构建完整产物、安装其运行依赖并检查版本，成功后才替换安装目录。构建工具要求自定义输出目录尚不存在，所以使用临时父目录下的 `package` 子目录。
+
+```sh
+set -eu
+SKILL_DIR="$HOME/.agents/skills/media-keeper"
+skill_build_root="$(mktemp -d "${TMPDIR:-/tmp}/media-keeper-skill.XXXXXX")"
+skill_build_dir="$skill_build_root/package"
+
+node tools/build-skill.mjs "$skill_build_dir"
+npm install --prefix "$skill_build_dir" --omit=dev --ignore-scripts --no-audit --no-fund
+node "$skill_build_dir/scripts/keeper.mjs" --version
+
+mkdir -p "$(dirname "$SKILL_DIR")"
+skill_backup_root=""
+if [ -e "$SKILL_DIR" ] || [ -L "$SKILL_DIR" ]; then
+  skill_backup_root="$(mktemp -d "${TMPDIR:-/tmp}/media-keeper-skill-backup.XXXXXX")"
+  mv "$SKILL_DIR" "$skill_backup_root/media-keeper"
+fi
+mv "$skill_build_dir" "$SKILL_DIR"
+rmdir "$skill_build_root"
+
+node "$SKILL_DIR/scripts/keeper.mjs" --version
+printf 'installed: %s\nbackup: %s\n' "$SKILL_DIR" "$skill_backup_root"
+```
+
+产物含 `SKILL.md`、`references/`、已打包 core/db 的 JS 入口、Bilibili 脚本/依赖清单、配置示例及安装后的 `node_modules/`。要安装整个产物；源码中的 `skills/media-keeper` 仍依赖 monorepo，不能直接复制作为独立安装包。这里首次使用 `npm install`，因为刚构建的独立产物还没有自己的 package-lock；不要套用仓库根目录的 workspace 锁文件。
+
+这套步骤也用于覆盖升级：旧目录先移至输出的系统临时备份位置，新目录直接落到同一个 `SKILL_DIR`，不会嵌套一层 media-keeper。验证失败时，将新目录另行保留，再把 `$skill_backup_root/media-keeper` 放回原路径。完整验证后清理本次临时备份；配置、恢复记录和模型继续保留。
+
+### 3. 复用或初始化配置
+
+保持同一 shell 中的 `SKILL_DIR`；换终端时先将它设为实际安装路径。配置选择顺序为 `MEDIA_KEEPER_CONFIG`、兼容的 `DOCS_KEEPER_CONFIG`、默认配置及旧目录。下面只有在这些位置都没有配置时，才从示例创建新文件：
+
+```sh
+skill_config_path="${MEDIA_KEEPER_CONFIG:-${DOCS_KEEPER_CONFIG:-}}"
+if [ -z "$skill_config_path" ]; then
+  for skill_config_candidate in \
+    "$HOME/.config/media-keeper/config.json" \
+    "$HOME/.config/docs-keeper/config.json" \
+    "$HOME/.config/docs_keeper/config.json"; do
+    if [ -f "$skill_config_candidate" ]; then
+      skill_config_path="$skill_config_candidate"
+      break
+    fi
+  done
+fi
+if [ -z "$skill_config_path" ]; then
+  mkdir -p "$HOME/.config/media-keeper"
+  chmod 700 "$HOME/.config/media-keeper"
+  skill_config_path="$HOME/.config/media-keeper/config.json"
+  install -m 600 "$SKILL_DIR/config.example.json" "$skill_config_path"
+fi
+test -f "$skill_config_path"
+chmod 600 "$skill_config_path"
+export MEDIA_KEEPER_CONFIG="$skill_config_path"
+```
+
+首次安装需填写 `mysql.host/port/database/user/password` 与 `lark.bin/profile/workspace`。`lark.workspace` 必须是已存在的绝对目录；文稿和中间材料默认放系统临时目录。宿主连接 Docker 中的 MySQL 时，通常使用其发布到宿主的地址，例如 `127.0.0.1:3306`；只有当前环境能解析容器名时才使用 `mysql-base`。口令不写进 shell 参数、日志、README 或 Git。
+
+自定义配置路径建议使用绝对路径，并按宿主已有方式传入运行 Agent 的环境；上面的 `export` 只作用于当前 shell，新工具调用或新会话仍需能取得该变量。默认和旧目录的配置由 helper 直接发现。
+
+已有配置保持内容不变，特别是用户指定的 `stateDir`、profile 与工作区。默认恢复状态位于 `~/.local/share/media-keeper/jobs/`；使用旧配置目录时 helper 会保留相应旧状态目录。配置和恢复状态放在安装目录之外，升级时不删除、不另建空状态替代已有记录。
+
+### 4. 验证安装与 Agent 加载
+
+```sh
+node "$SKILL_DIR/scripts/keeper.mjs" --version
+node "$SKILL_DIR/scripts/keeper.mjs" doctor
+node "$SKILL_DIR/scripts/keeper.mjs" types
+```
+
+版本应为 `0.5.0`。`doctor` 验证数据库连接、会话时区和类型；`types` 应返回六种来源类型。它们不证明飞书写入或音频转写已成功。飞书身份另用 `lark-cli --profile PROFILE whoami --as user` 检查，把 `PROFILE` 替换为配置中的值；如有用户提供的现有文档，可用 `docs +fetch` 做只读验证。安装验证不自动创建测试文档、收藏或修改现有资料。
+
+确认目标目录的 `SKILL.md` 和 `references/` 可读，再按当前 Agent 宿主的方式刷新 Skill；若当前会话仍未发现，开启新会话核对可用 Skill。helper 可运行和宿主已加载 Skill 是两项检查。直接调用脚本时使用实际安装路径，不假定某个宿主专有环境变量一定存在。
+
+### 5. Bilibili 音频环境
+
+需要收藏 Bilibili 时，再准备独立的 Python 3.9+ 环境；已有环境直接复用。以下命令在对应 venv 尚不存在时执行，已有路径可通过 `MEDIA_KEEPER_AUDIO_PYTHON` 指定：
+
+```sh
+python3 -m venv "$HOME/.local/share/media-keeper/audio-venv"
+AUDIO_PYTHON="$HOME/.local/share/media-keeper/audio-venv/bin/python"
+"$AUDIO_PYTHON" -m pip install -r "$SKILL_DIR/scripts/audio-requirements.txt"
+"$AUDIO_PYTHON" -B "$SKILL_DIR/scripts/bilibili.py" doctor
+```
+
+音频 `doctor` 仅验证 Python 依赖可导入，不下载模型或测试真实视频。默认 small 模型在首次转写时按需下载，已有模型可用 `MEDIA_KEEPER_WHISPER_MODEL` 指定；模型、venv 和恢复状态属于可复用数据，不随 Skill 升级或任务临时文件一起删除。完整调用及任务清理见 [Bilibili 音频流程](skills/media-keeper/references/bilibili.md)。
 
 ## 测试
 
