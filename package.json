@@ -25,7 +25,14 @@
     "test:web": "playwright test",
     "test:audio": "python3 -B -m unittest discover -s skills/media-keeper/test -p 'bilibili_test.py'",
     "package:deploy": "node tools/package-deploy.mjs",
-    "deploy": "bash deploy/start.sh"
+    "deploy": "bash deploy/start.sh",
+    "dev:acomet": "npm run dev:acomet --workspace=@media-keeper/web",
+    "build:acomet": "npm run build:acomet --workspace=@media-keeper/web",
+    "preview:acomet": "npm run preview:acomet --workspace=@media-keeper/web",
+    "acomet": "acomet module dev --dir apps/web/acomet --url http://localhost:5174",
+    "validate:acomet": "acomet module validate apps/web/acomet",
+    "start:acomet:api": "ACOMET_ENABLED=1 MEDIA_KEEPER_API_PORT=3002 npm run start:api",
+    "test:acomet": "npm run build:api && node --test tests/acomet-api.test.mjs && playwright test --config playwright.acomet.config.ts"
   },
   "devDependencies": {
     "@nestjs/testing": "12.2.0",

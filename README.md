@@ -96,7 +96,7 @@ curl --get http://127.0.0.1:3001/api/media \
 
 `published` 包含今日：today 为上海今日，week 为含今日的近 7 个自然日；month / year 从明日零点分别减去 1 个日历月 / 年到明日零点，左闭右开，月末与闰年按日历处理。all 不限制日期并包含未知日期。类型计数遵循标题、来源、作者与日期条件，但忽略当前 source_type 和分页，六种类型无结果时返回 0。
 
-API 没有新增、更新或删除接口；只读账号与只读快照事务共同约束数据库访问。当前是本机查询服务，未配置公网身份认证。
+API 没有新增、更新或删除接口；只读账号与只读快照事务共同约束数据库访问。默认是本机查询服务；Acomet 独立后端可启用下文的模块令牌校验与账号白名单。
 
 ## 前端与 my-dashboard 接入
 
@@ -122,6 +122,98 @@ npm run dev
 宿主清单已登记 `media_keeper`、`./DashboardModule` 和 `/media-keeper/mf-manifest.json`。宿主开发与预览代理 `/media-keeper/` 到 8081，远程预览再将 `/media-keeper/api/` 转给 3001。前端变更后重新构建并刷新宿主；这里不承诺跨项目热更新。
 
 默认构建 base 为 `/media-keeper/`，业务 API 为同一前缀下的 `api/`，因此宿主环境无需跨域。可用构建环境变量 `MODULE_PUBLIC_URL` 指定资源 base、`VITE_MEDIA_API_URL` 指定 API base；若改为跨域部署，相应服务器需单独配置 CORS。`MEDIA_KEEPER_API_ORIGIN` 仅配置 Vite 开发/预览代理的后端地址，不进入浏览器。
+
+## Acomet 本机接入
+
+按 [Acomet 本地应用指南](https://acomet.app/docs/connect-local-app)增加独立入口，复用现有 Media 列表、筛选和详情。只提供工具页，不提供主页窗口；原 my-dashboard 的 Federation 入口继续单独构建。Acomet 的前端产物在 `apps/web/dist-acomet/`，不包含 Federation 的远程依赖；入口脚本、样式和图标均打包到本地产物。
+
+- `apps/web/acomet/`：模块清单与 HTML 入口，模块 id 为 `media-keeper`、名称为 `Media`。
+- `apps/web/src/acomet/` 与 `vite.acomet.config.ts`：连接 SDK、主题变量映射、宿主路由和单独的静态构建。请求前调用 `frame.getToken()`，以 Bearer 请求后端，不使用 cookie；原文和飞书链接交给 `frame.openLink()`。
+- `apps/api/src/acomet.ts`：可选的严格认证模式。除 GET 健康检查和 OPTIONS 预检外，所有路径都校验 ES256 模块令牌的签名、签发方、模块 id、有效期和格式，再核对 `sub` 白名单；本机来源也不免认证。CORS 只允许指定的模块页面，不允许携带 cookie。
+
+2026-11-16 已将 `media-keeper@0.5.0` 私有发布到 Acomet，并接入当前账号的工作台：[打开 Media](https://acomet.app/m/media-keeper)。已验证正式页面通过本人模块身份读取现有 43 条资料，匿名访问被拒绝。现有 8081 容器继续服务 my-dashboard；正式 Acomet 后端额外运行在宿主机 `127.0.0.1:3003`，复用 `runtime/api.local.json` 的只读数据库配置，不修改表结构或资料内容。
+
+### 当前临时接入的运行条件
+
+用户选择先使用免账号的 Cloudflare Quick Tunnel。当前隧道和 API 以本机进程运行，尚未配置开机自启；电脑、API 与隧道都需保持运行。隧道停止后地址失效，重新创建会换地址，需要重建并发布新的模块版本；不能将它当作固定域名部署。模块源码版本与私有发布版本均为 0.5.0；Acomet 接入实现随 main 的后续提交维护，既有 V0.5.0 标签仍固定首次发布代码。
+
+实际隧道地址和二进制位置保存在 Git 忽略的 `runtime/acomet/connection.local.json`；正式认证环境在 `runtime/acomet/backend.env`（0600），只保存签发方、模块来源、已验证的本人 `sub` 和端口，不保存 Bearer 令牌。恢复同一份 API 时，先确认端口没有被现有实例占用，再运行：
+
+```sh
+node --env-file=runtime/acomet/backend.env apps/api/dist/main.js
+```
+
+首次确认本人身份需要在 Acomet 网页中打开模块：本轮实测模块令牌接口只接受网页登录会话，CLI 的访问令牌不能代替；后端先验证令牌签名再确认 `sub`，不根据邮箱、未验证的 JWT 内容或任意首次请求自动授予资料库访问权。正式后端已完成此配置，本机模拟账号不会获得正式访问权。
+
+
+### 本机启动
+
+需要 Node.js 24.9+、项目依赖，以及已安装的 Acomet CLI（`acomet --version`；缺少时按官方文档 `npm install -g acomet`）。先在仓库根目录构建并校验：
+
+```sh
+npm run build:api
+npm run build:acomet
+npm run validate:acomet
+acomet module validate apps/web/dist-acomet
+```
+
+清单中本机 HTTP 地址的提示是预期结果，不能把这份本机产物直接用于公网发布。然后分别在三个终端、均从仓库根目录运行：
+
+```sh
+# 终端 1：受保护的独立 API；只接受官方模拟宿主的 alice。
+ACOMET_ISSUER=http://127.0.0.1:4310 \
+ACOMET_MODULE_ORIGIN=http://localhost:5174 \
+ACOMET_ALLOWED_SUBS=u_0a04af29b47e197d81cf4248 \
+npm run start:acomet:api
+
+# 终端 2：预览已构建的静态模块；修改前端后重新构建。
+npm run preview:acomet
+
+# 终端 3：Acomet 官方本地模拟宿主。
+npm run acomet
+```
+
+打开 <http://127.0.0.1:4310/m/media-keeper>，选择模拟用户 `alice`。本地 `bob` 不在白名单，预期显示无权访问。这个 alice 的 `sub` 来自官方 CLI 0.1.0 的本地模拟规则，只能用于本机验证，不能当作你的正式 Acomet 身份。
+
+开发时可将终端 2 换成 `npm run dev:acomet`。模块地址使用 `http://localhost:5174`、宿主使用 `http://127.0.0.1:4310`，保持不同站点。单独打开模块页面只显示入口提示。手动启动的三个进程需分别 Ctrl+C 退出。
+
+### 后端配置与数据边界
+
+| 环境变量 | 用途 |
+| --- | --- |
+| `MEDIA_KEEPER_API_CONFIG` | 复用原只读数据库配置；默认 `runtime/api.local.json`，仍要求 0600 |
+| `MEDIA_KEEPER_API_PORT` | 覆盖 API 端口；`start:acomet:api` 使用 3002 |
+| `ACOMET_ENABLED` | `1` 启用严格认证；`start:acomet:api` 自动设置，普通本机 API 默认关闭 |
+| `ACOMET_ISSUER` | 本机为 `http://127.0.0.1:4310`；正式默认 `https://acomet.app`，公钥取该源的 `/.well-known/jwks.json` |
+| `ACOMET_MODULE_ORIGIN` | 本机为 `http://localhost:5174`；正式为 `https://media-keeper.acometmodule.app` |
+| `ACOMET_ALLOWED_SUBS` | 逗号分隔的明确 `u_` 用户标识；启用认证但名单为空或非法时拒绝启动，不支持通配符 |
+
+Acomet 模式要求 API 的 `server.host` 是 `127.0.0.1` 或 `::1`。这是个人资料库：名单中的账号都访问现有 `agent.useful_docs`，不自动创建用户、复制资料或实现多人数据隔离。正式 `sub` 是按模块生成的稳定匿名标识，与 `acomet whoami` 中的账号 id 不同，必须从你本人在该模块内取得的令牌中核对；不要把 Bearer 令牌写入日志、配置或仓库。
+
+### 后续正式接入
+
+目前临时接入已经完成；切换长期运行时，需要选定固定 HTTPS 隧道，并继续使用你自己的正式模块 `sub`。长期使用可考虑官方指南所列的 Cloudflare Tunnel + 自有域名；已有 Tailscale 时也可评估 Funnel。隧道只转发这个启用了认证的 3002 端口，不转发原 8081 本机网站入口。
+
+后端设置 `ACOMET_ISSUER=https://acomet.app`、`ACOMET_MODULE_ORIGIN=https://media-keeper.acometmodule.app`，白名单改为真实 `sub`。前端使用同一个隧道源构建：
+
+```sh
+VITE_ACOMET_HOST_ORIGIN=https://acomet.app \
+VITE_BACKEND_ORIGIN=https://你的固定隧道域名 \
+npm run build:acomet
+acomet module validate apps/web/dist-acomet
+```
+
+构建工具同步生成产物里的 `acomet.module.json`，保证 `backend.origin` 与前端请求地址一致；源码清单保留本机地址供开发使用。确认正式配置和隧道后，执行 `acomet module publish apps/web/dist-acomet --dist .` 与 `acomet modules add media-keeper`；首次发布默认私有。线上 0.5.0 已发布，不能原地覆盖；后续变更隧道或重新发布前，需先更新模块清单的版本号。`--dist .` 表示直接上传该目录内已构建的文件，否则 CLI 默认会再查找一层 `dist/`。
+
+### 接入验证
+
+```sh
+npm run typecheck
+npm test
+npm run test:acomet
+```
+
+`test:acomet` 使用官方模拟宿主和真实 NestJS 认证链路，浏览器用固定模拟资料；不连接业务数据库。覆盖令牌错误、名单外账号、健康检查、预检、筛选、分页、详情、刷新/后退、主题、链接打开和独立入口提示。测试会自行启停 4310、5174、3002 的进程，运行前先退出手动启动的同端口进程。截图及失败轨迹在系统临时目录。
 
 ## 容器部署
 
@@ -291,6 +383,6 @@ MEDIA_KEEPER_CONFIG=runtime/config.local.json MEDIA_KEEPER_INTEGRATION=1 npm tes
 
 默认测试不连接数据库，真实数据库测试需要显式启用；API 权限测试还需要配置好只读的 API 配置。数据库样本在事务中回滚。测试覆盖原采集规则、HTTP 参数、五字段组合筛选、日期预设与微秒边界、类型计数、分页、排序、详情与只读权限。
 
-浏览器联调：`npm run test:web`。测试预览会占用 8081；已有部署时先运行 `docker stop media-keeper`，测试后用 `docker start media-keeper` 恢复。需要同级的 my-dashboard 仓库已安装依赖；其他位置可设置 `MY_DASHBOARD_ROOT`。用例自动构建并启动真实宿主和远程模块，以测试 HTTP 响应隔离业务数据库，覆盖筛选参数、分页/详情/刷新、主题字体、六类图标、小屏、重试、迟到响应取消与危险链接；真实 API 另由上面的集成测试验证。默认 Chromium，截图和失败轨迹在系统临时目录，未声称验证 Safari / Firefox。
+浏览器联调：`npm run test:web`。测试预览会占用 8081；已有部署时先运行 `docker stop media-keeper`，测试后用 `docker start media-keeper` 恢复。Acomet 的独立浏览器测试见上面的 `test:acomet`。原 Federation 测试需要同级的 my-dashboard 仓库已安装依赖；其他位置可设置 `MY_DASHBOARD_ROOT`。用例自动构建并启动真实宿主和远程模块，以测试 HTTP 响应隔离业务数据库，覆盖筛选参数、分页/详情/刷新、主题字体、六类图标、小屏、重试、迟到响应取消与危险链接；真实 API 另由上面的集成测试验证。默认 Chromium，截图和失败轨迹在系统临时目录，未声称验证 Safari / Firefox。
 
 `skills/media-keeper/test/live-copy.mjs --live` 会创建并保留飞书验收文档和收藏，只有明确需要该写入验收时才运行。首次建表、迁移、账号授权和飞书认证均不在 npm 测试中自动执行。

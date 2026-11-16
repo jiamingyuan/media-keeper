@@ -1,8 +1,8 @@
 # media-keeper 项目入口
 
-记录更新：2026-10-27。当前源码版本 0.5.0，发布引用 main / V0.5.0；基于 V0.4 `5b5acd1cf576f7c2961493a66a0adb1df29ed91c` 归档后续部署、摘要与 Loot Drop 改动。网站容器未因本次发布重新部署；用户整体验收结论尚未记录。
+记录更新：2026-11-16。当前源码版本 0.5.0，发布引用 main / V0.5.0；基于 V0.4 `5b5acd1cf576f7c2961493a66a0adb1df29ed91c` 归档后续部署、摘要与 Loot Drop 改动。网站容器未因本次发布重新部署；用户整体验收结论尚未记录。
 
-项目根目录：`/Users/jiamingyuan/Desktop/ai-infra/media-keeper`；仓库：<https://github.com/jiamingyuan/media-keeper>。V0.5.0 标签固定首次发布提交 `8da17e2`；main 在同一 0.5.0 版本追加维护 README 的 Agent 安装与升级指引，验证及范围见 V0.5.0 迭代。
+项目根目录：`/Users/jiamingyuan/Desktop/ai-infra/media-keeper`；仓库：<https://github.com/jiamingyuan/media-keeper>。V0.5.0 标签固定首次发布提交 `8da17e2`；main 在同一 0.5.0 版本追加维护 Agent 安装指引与 Acomet 接入实现，验证及范围见 V0.5.0 迭代。
 
 ## 记录入口
 
@@ -25,6 +25,8 @@
 | V0.5.0 | Loot Drop 完整展开与双链接分析、摘要可读性、已有镜像独立容器部署、项目记忆归位 | [V0.5.0](V0.5.0/iteration.md) |
 
 ## 当前可接续状态
+
+- 2026-11-16 Acomet 独立工具页已私有发布为 media-keeper@0.5.0，并加入当前账号工作台：<https://acomet.app/m/media-keeper>。用户选择临时 HTTPS 隧道；正式页面已通过本人签名身份读取 43 条资料，匿名请求 401。正式 API 运行于本机 127.0.0.1:3003，原 8081 容器保持健康；模拟宿主的临时联调进程已结束。隧道/API 需保持运行，当前不是固定域名或开机自启部署；连接与白名单配置保留在忽略的 runtime/acomet/；接入源码归档到 main 的后续提交，保留现有版本与标签。启动和切换固定入口见 [README](../README.md#acomet-本机接入)，验证及发布记录见 [V0.5.0](V0.5.0/iteration.md)。
 
 - 网站入口：<http://localhost:8080/tools/media-keeper>。2026-10-26 只读核对 media-keeper 容器为 running / healthy，无 Compose 项目标签；健康接口、资料列表和经 my-dashboard 转发的 Federation 清单均返回 200，资料总数 19。具体运行参数见架构页。
 - 本机全局 Skill 位于 `~/.agents/skills/media-keeper`，版本 0.5.0。项目与全局的 SKILL.md、摘要指导字节一致；19 条存量摘要的重写结果与验证见 V0.4。

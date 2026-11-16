@@ -1,6 +1,6 @@
 # media-keeper 当前架构与部署
 
-实现信息更新：2026-10-27；下述网站运行检查日期为 2026-10-26。源码按 V0.5.0（0.5.0）发布；网站运行事实沿用已注明日期的检查，本轮不重新部署容器。以下记录当前方案与运行事实；方案演进经过见各版本 iteration，持续交付要求见 [rules.md](rules.md)。
+实现信息更新：2026-11-16（新增 Acomet 入口并私有发布）；下述网站运行检查日期为 2026-10-26。源码按 V0.5.0（0.5.0）发布；网站运行事实沿用已注明日期的检查，本轮不重新部署容器。以下记录当前方案与运行事实；方案演进经过见各版本 iteration，持续交付要求见 [rules.md](rules.md)。
 
 ## 模块与数据流
 
@@ -41,3 +41,20 @@ API 支持标题、来源、作者包含匹配，类型精确匹配，原文创�
 Bilibili 流程使用独立 Python 环境与本机语音模型；音频转写后删除，任务结束清理临时转写等材料，保留可复用的运行环境、模型及恢复状态。现有实现见 [音频流程](../skills/media-keeper/references/bilibili.md)，真实实测与失败边界见 V0.4。YouTube 的直接下载及 RSS 自动回退尚未实现。
 
 Loot Drop 采集新增专用 HTML 展开：读取六个分析模块的 data-full-text，保留重建方案、概况表格和相关案例链接。Agent 基于原报告写摘要并生成中文分析文档，统一报告标题并核实中国公司的中文名；完整处理的内容/授权条件及独立分析范围见专用参考；helper 为此来源允许保留原文的同时创建飞书副本，回读后向原表同一记录写入两个链接，无 schema 或前后端改动。译稿可直接位于系统临时目录，CLI 在稿件目录读取相对文件；保留原有 jobs 副本恢复。实现与边界见 [转载规范](../skills/media-keeper/references/loot-drop.md) 和 V0.4 的 2026-10-27 记录。
+
+
+## Acomet 独立入口（2026-11-16，已私有接入）
+
+用户要求按官方 connect-local-app 指南改造，并确认“暂无，先完成本机验证”。新增 `apps/web/acomet` 清单/HTML、独立 Vite 配置与 SDK 适配，模块 id 为 media-keeper，仅工具页；复用原组件，my-dashboard 的 Federation 产物和入口仍独立。SDK 管理路由、主题、外部链接与短期模块令牌，静态产物输出到忽略的 `apps/web/dist-acomet`；构建时后端源同步写入产物清单。
+
+Acomet API 在宿主机额外监听 loopback:3003，复用已有只读数据库配置；3002 仅用于本机模拟联调。ACOMET_ENABLED=1 时，除 GET 健康检查和 OPTIONS 外的每个路径都校验官方 SDK 令牌，并强制显式 sub 白名单和精确 CORS。个人资料库的 allowlist 账号访问同一批资料，不新增用户表或多人数据隔离；普通原 API 的本机部署方式仍单独使用。
+
+实测官方 CLI 0.1.0 + 模拟宿主 127.0.0.1:4310 + 静态模块 localhost:5174，alice 可读当前 43 条真实资料，bob 被拒，详情和返回正常。只读验证未改写资料、飞书或数据库结构；原容器运行不受影响。随后按用户“现在将media-keeper接入acomet”及选择临时隧道的要求，正式前端已私有发布为 0.5.0，加入工作台，并完成本人模块 sub 的签名核验和白名单配置。正式网页请求返回 200 / 43 条，匿名请求 401；固定域名和开机自启仍未配置，详见 [README](../README.md#acomet-本机接入) 及 V0.5.0 追加记录。
+
+
+### 当前公网接入
+
+- Acomet 工作台入口为 <https://acomet.app/m/media-keeper>，静态页面由 <https://media-keeper.acometmodule.app/> 托管。平台记录 private / live / 0.5.0、11 文件、252,550 字节；仅工具页，没有主页窗口。原 focus、hello-module 接入与顺序保留。
+- 运行链路为模块静态页面 → 临时 Cloudflare HTTPS 地址 → cloudflared → loopback:3003 的严格认证 API → 既有只读 MySQL。当前没有新增镜像或容器，没有转发原 8081 的无认证本机入口。
+- 正式环境文件 `runtime/acomet/backend.env`（0600）与连接信息 `runtime/acomet/connection.local.json` 由 Git 忽略。只将经过平台公钥验证的本人 sub 写入名单，不保存令牌；CLI 的登录令牌不能调用仅网页登录会话可用的模块令牌接口。一次性身份诊断进程已移除，正常 API 通过 Node --env-file 启动。
+- cloudflared 来自官方 2026.11.0 arm64 发布，校验下载的 SHA-256 后使用。当前是免账号 Quick Tunnel，不保证持续在线，重建会改变域名；需重新构建、提高清单版本并发布。电脑/后端/隧道须保持运行，未配置服务自启。实际地址与二进制路径只在本地连接文件维护。

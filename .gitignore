@@ -13,3 +13,5 @@ dist/
 __pycache__/
 *.pyc
 coverage/
+
+apps/web/dist-acomet/

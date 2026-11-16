@@ -9,7 +9,7 @@ import styles from './Media.module.css'
 
 // Structural contract shared with my-dashboard; the remote owns no React root or router.
 interface DashboardModuleProps {
-  theme: 'night' | 'morning'; basePath: string; path: string; search: string; navigate: (to: string) => void
+  theme: 'night' | 'morning'; basePath: string; path: string; search: string; navigate: (to: string) => void; openLink?: (url: string) => Promise<boolean>
 }
 interface MediaPage { data: MediaRecord[]; source_type_counts: Record<SourceType, number>; pagination: { page: number; page_size: number; total: number; total_pages: number } }
 function follow(event: MouseEvent<HTMLAnchorElement>, to: string, navigate: DashboardModuleProps['navigate']) {
@@ -77,16 +77,24 @@ function MediaList({ basePath, search, navigate }: DashboardModuleProps) {
     </section>
   </>
 }
-function MediaDetail({ id, basePath, search, navigate }: DashboardModuleProps & { id: string }) {
+function MediaDetail({ id, basePath, search, navigate, openLink }: DashboardModuleProps & { id: string }) {
   const { data, error, loading, reload } = useMediaRequest<{ data: MediaRecord }>('media/' + id)
   const record = data?.data, heading = useRef<HTMLHeadingElement>(null)
   useEffect(() => { if (record) heading.current?.focus({ preventScroll: true }) }, [record])
   const back = basePath + filterSearch(readFilters(search))
   const original = safeLink(record?.link ?? null), copy = safeLink(record?.copied_lark_link ?? null)
+  const [linkError, setLinkError] = useState(false)
+  function external(event: MouseEvent<HTMLDivElement>) {
+    const link = (event.target as Element).closest<HTMLAnchorElement>('a[target="_blank"]')
+    if (!openLink || !link) return
+    event.preventDefault()
+    setLinkError(false)
+    void openLink(link.href).then(opened => setLinkError(!opened), () => setLinkError(true))
+  }
   return <>
     <a className={styles.back} href={back} onClick={event => follow(event, back, navigate)}>← 返回资料库</a>
     {loading ? <Message title="正在读取资料">请稍候。</Message> : error ? <Message title={error.status === 404 ? '资料不存在' : '资料暂时无法加载'} action={error.status !== 404 && <button className={styles.secondary} type="button" onClick={reload}>重试</button>}>{error.message}</Message>
-      : record && <div className={styles.detailColumns}>
+      : record && <div className={styles.detailColumns} onClick={external}>
         <article className={styles.summaryCard}>
           <div className={styles.detailTop}><TypeBadge type={record.source_type} /><span>收藏于 {readableDate(record.created_at)}</span></div>
           <div className={styles.detailTitle}><h2 ref={heading} tabIndex={-1}>{record.title}</h2><CopyTag record={record} /></div>
@@ -94,6 +102,7 @@ function MediaDetail({ id, basePath, search, navigate }: DashboardModuleProps & 
           <section className={styles.summary}><h3>摘要</h3><Abstract text={record.abstract} /></section>
           <div className={styles.readingLinks}>{original && <a className={styles.primary} href={original} target="_blank" rel="noopener noreferrer">阅读原文 ↗</a>}{copy && <a className={original ? styles.secondary : styles.primary} href={copy} target="_blank" rel="noopener noreferrer">阅读飞书副本 ↗</a>}{(original || copy) ? <span>在新标签页打开</span> : <span>暂无可用的全文链接</span>}</div>
         </article>
+        {linkError && <p role="alert">链接未能打开，请重试。</p>}
         <aside className={styles.sourceInfo} aria-label="资料信息"><h2>资料信息</h2><dl>
           {([['来源', record.source], ['类型', sourceLabels[record.source_type]], ['作者', record.author || '未注明'], ['发布日期', readableDate(record.source_created_at)], ['收藏时间', readableDate(record.created_at, true)]]).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
           {original && <div><dt>原文地址</dt><dd><a href={original} target="_blank" rel="noopener noreferrer">{new URL(original).hostname} ↗</a></dd></div>}

@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Catch, HttpException, type ArgumentsHost, type ExceptionFilter, type INestApplication } from '@nestjs/common';
 import { KeeperError } from '@media-keeper/core';
+import { configureAcomet, readAcometConfig, type AcometConfig } from './acomet.js';
 @Catch()
 class ApiExceptionFilter implements ExceptionFilter {
   catch(error: unknown, host: ArgumentsHost) {
@@ -15,7 +16,8 @@ class ApiExceptionFilter implements ExceptionFilter {
     host.switchToHttp().getResponse().status(status).json({ error: { code, message }, statusCode: status });
   }
 }
-export function configureApi(app: INestApplication) {
+export function configureApi(app: INestApplication, acomet: AcometConfig | undefined = readAcometConfig()) {
+  if (acomet) configureAcomet(app, acomet);
   app.setGlobalPrefix('api');
   app.useGlobalFilters(new ApiExceptionFilter());
   app.enableShutdownHooks();

@@ -1,0 +1,16 @@
+:root {
+  --canvas: var(--bg); --text-primary: var(--text); --text-secondary: var(--muted);
+  --heading: var(--text); --border: var(--line); --accent-text: var(--accent);
+  --accent-bg: var(--accent); --on-accent: var(--bg);
+  --raised: color-mix(in srgb, var(--panel) 88%, var(--text));
+  --radius-sm: var(--radius); --radius-lg: calc(var(--radius) * 2);
+  --font-body: 'PingFang SC', var(--font, sans-serif);
+  font-family: var(--font-body); color: var(--text); background: var(--bg);
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 0; }
+#root { padding: 24px; }
+.connection-status { padding: 24px; line-height: 1.75; }
+.connection-status h1 { font-size: 20px; font-weight: 500; }
+.connection-status button { font: inherit; padding: 6px 16px; }
+@media (max-width: 599px) { #root { padding: 12px; } }

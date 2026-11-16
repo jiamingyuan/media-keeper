@@ -7,9 +7,13 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:acomet": "vite --config vite.acomet.config.ts",
+    "build:acomet": "tsc --noEmit && vite build --config vite.acomet.config.ts",
+    "preview:acomet": "vite preview --config vite.acomet.config.ts"
   },
   "dependencies": {
+    "@acomet/module-sdk": "0.1.0",
     "@media-keeper/core": "0.5.0",
     "react": "19.3.1",
     "react-dom": "19.3.1"
